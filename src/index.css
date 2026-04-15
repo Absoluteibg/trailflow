@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --bg: #0A0A0A;
+  --accent: #E0FF4F;
+  --text: #F5F5F5;
+  --dim: rgba(245, 245, 245, 0.4);
+  --line: rgba(255, 255, 255, 0.1);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.vertical-text {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 11px;
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.nav-item {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-weight: 600;
+  color: var(--dim);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.nav-item.active {
+  color: var(--accent);
+}
+
+.hero-title {
+  font-size: 80px;
+  line-height: 0.85;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+}
+
+.accent-text {
+  color: var(--accent);
+}
+
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-value {
+  font-size: 48px;
+  font-weight: 300;
+  letter-spacing: -2px;
+}
+
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--dim);
+}
+
+.terminal-deco {
+  position: absolute;
+  bottom: 40px;
+  right: 40px;
+  width: 300px;
+  height: 180px;
+  background: #000;
+  border: 1px solid var(--line);
+  opacity: 0.2;
+  z-index: 0;
+  padding: 15px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: #555;
+  pointer-events: none;
+}
+
+.terminal-header {
+  border-bottom: 1px solid #222;
+  padding-bottom: 5px;
+  margin-bottom: 10px;
+  display: flex;
+  gap: 5px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #333;
+}
+
+.chat-bubble {
+  background: #151515;
+  border: 1px solid var(--line);
+  padding: 1.5rem;
+  transition: border-color 0.3s ease;
+}
+
+.chat-bubble:hover {
+  border-color: var(--accent);
+}
+
+.terminal-box {
+  background: #000;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  padding: 1rem;
+  border: 1px solid var(--line);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}

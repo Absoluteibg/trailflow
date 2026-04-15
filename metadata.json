@@ -1,0 +1,6 @@
+{
+  "name": "Trailflow",
+  "description": "Autonomous AI coding agent gateway for self-hosted coding tasks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["AI Agent", "Coding Assistant", "Telegram Bot", "CLI"]
+}
