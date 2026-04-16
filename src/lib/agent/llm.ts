@@ -1,28 +1,43 @@
-import { GoogleGenAI } from "@google/genai";
+import { Ollama } from 'ollama';
 import { config } from "../config";
 import { logger } from "../logger";
 
-export class GeminiLLM {
-  private ai: GoogleGenAI;
+export class OllamaLLM {
+  private ollama: Ollama;
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+    this.ollama = new Ollama({ host: config.OLLAMA_BASE_URL });
   }
 
   async chat(messages: any[], maxTokens: number = 2048): Promise<string> {
     try {
-      const response = await this.ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: messages,
-        config: {
+      // Map Gemini style messages to Ollama style messages
+      const ollamaMessages = messages.map(m => {
+        let content = '';
+        if (Array.isArray(m.parts)) {
+          content = m.parts.map((p: any) => p.text).join('\n');
+        } else {
+          content = m.content;
+        }
+        
+        return {
+          role: m.role === 'model' ? 'assistant' : m.role,
+          content: content
+        };
+      });
+
+      const response = await this.ollama.chat({
+        model: "ollama/gemma4:e4b", // Hardcoded as requested
+        messages: ollamaMessages,
+        options: {
           temperature: 0.2,
-          // maxOutputTokens is handled by the model usually, but we can set it if needed
+          num_predict: maxTokens
         }
       });
 
-      return response.text || '';
+      return response.message.content || '';
     } catch (error: any) {
-      logger.error({ error: error.message }, 'LLM Call failed');
+      logger.error({ error: error.message }, 'Ollama Call failed');
       throw error;
     }
   }

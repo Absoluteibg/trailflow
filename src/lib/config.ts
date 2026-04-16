@@ -3,7 +3,9 @@ import path from 'path';
 import fs from 'fs';
 
 const ConfigSchema = z.object({
-  GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
+  GEMINI_API_KEY: z.string().optional(),
+  OLLAMA_BASE_URL: z.string().default('http://localhost:11434'),
+  OLLAMA_MODEL: z.string().default('gemma4:e4b'),
   APP_URL: z.string().optional(),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   WORKSPACE_DIR: z.string().default('./workspace'),
@@ -16,6 +18,8 @@ export type Config = z.infer<typeof ConfigSchema>;
 function loadConfig(): Config {
   const config = ConfigSchema.parse({
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
+    OLLAMA_MODEL: process.env.OLLAMA_MODEL,
     APP_URL: process.env.APP_URL,
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     WORKSPACE_DIR: process.env.WORKSPACE_DIR,

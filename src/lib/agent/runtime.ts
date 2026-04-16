@@ -1,14 +1,14 @@
-import { GeminiLLM } from "./llm";
+import { OllamaLLM } from "./llm";
 import { buildContext } from "./context";
 import { getToolByName } from "../tools";
 import { getDb } from "../db";
 import { logger } from "../logger";
 
 export class AgentRuntime {
-  private llm: GeminiLLM;
+  private llm: OllamaLLM;
 
   constructor() {
-    this.llm = new GeminiLLM();
+    this.llm = new OllamaLLM();
   }
 
   async runTask(sessionId: string, task: string): Promise<string> {

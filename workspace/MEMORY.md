@@ -10,7 +10,7 @@ This is the Trailflow agent workspace.
 
 ## Architecture Decisions
 - Using TypeScript/Node.js for the gateway and agent runtime.
-- Using given  model as the primary reasoning model.
+- Using Ollama/Gemma4 as the primary reasoning model.
 - Using SQLite for session and message persistence.
 
 ## Task History
