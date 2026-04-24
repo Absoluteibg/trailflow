@@ -11,6 +11,10 @@ const ConfigSchema = z.object({
   WORKSPACE_DIR: z.string().default('./workspace'),
   ALLOWED_TELEGRAM_USER_IDS: z.string().default('').transform(s => s ? s.split(',').map(id => id.trim()) : []),
   LOG_LEVEL: z.string().default('info').transform(s => ['info', 'debug', 'error'].includes(s) ? s : 'info'),
+  // API key for web route authentication (optional — skip auth if not set)
+  API_KEY: z.string().optional(),
+  // Max wall-clock time for a single agent task (ms). Default: 5 minutes.
+  AGENT_TIMEOUT_MS: z.coerce.number().default(300_000),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

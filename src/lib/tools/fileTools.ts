@@ -1,7 +1,38 @@
 import fs from 'fs';
 import path from 'path';
 import { Tool, ToolInput } from './base';
-import { logger } from '../logger';
+import { config } from '../config';
+import { z } from 'zod';
+
+const ReadFileSchema = z.object({
+  path: z.string().min(1, 'Path cannot be empty')
+});
+
+const WriteFileSchema = z.object({
+  path: z.string().min(1, 'Path cannot be empty'),
+  content: z.string(),
+  mode: z.enum(['overwrite', 'append']).optional().default('overwrite')
+});
+
+const ListFilesSchema = z.object({
+  path: z.string().optional().default('.'),
+  max_depth: z.number().min(1).max(5).optional().default(3)
+});
+
+const CreateDirSchema = z.object({
+  path: z.string().min(1, 'Path cannot be empty')
+});
+
+const DeleteFileSchema = z.object({
+  path: z.string().min(1, 'Path cannot be empty'),
+  confirm: z.boolean().refine(v => v === true, 'Confirmation must be true')
+});
+
+const EditFileSchema = z.object({
+  path: z.string().min(1, 'Path cannot be empty'),
+  old_str: z.string(),
+  new_str: z.string()
+});
 
 export class ReadFileTool extends Tool {
   name = 'read_file';
@@ -9,17 +40,21 @@ export class ReadFileTool extends Tool {
   inputs = {
     path: { type: 'string', description: 'Relative path within workspace.', required: true }
   };
+  protected schema = ReadFileSchema;
 
   async forward(input: ToolInput): Promise<string> {
-    const fullPath = this.safeResolve(input.path);
+    const validation = this.validateInput(input);
+    if (!validation.valid) return `Error: Invalid input - ${validation.error}`;
+
+    const fullPath = this.safeResolve(validation.data.path);
     if (!fs.existsSync(fullPath)) return `Error: File not found at ${input.path}`;
-    
+
     const stats = fs.statSync(fullPath);
     if (stats.size > 512 * 1024) {
       const content = fs.readFileSync(fullPath, 'utf8').substring(0, 512 * 1024);
       return `Warning: File too large, truncated to 512KB:\n\n${content}`;
     }
-    
+
     return fs.readFileSync(fullPath, 'utf8');
   }
 }
@@ -29,19 +64,30 @@ export class WriteFileTool extends Tool {
   description = 'Write content to a file inside the workspace. Creates the file if it does not exist. Overwrites existing content.';
   inputs = {
     path: { type: 'string', description: 'Relative path within workspace.', required: true },
-    content: { type: 'string', description: 'Content to write.', required: true }
+    content: { type: 'string', description: 'Content to write.', required: true },
+    mode: { type: 'string', description: 'Mode: "overwrite" or "append" (default: "overwrite")', required: false }
   };
+  protected schema = WriteFileSchema;
 
   async forward(input: ToolInput): Promise<string> {
-    const fullPath = this.safeResolve(input.path);
+    const validation = this.validateInput(input);
+    if (!validation.valid) return `Error: Invalid input - ${validation.error}`;
+
+    const fullPath = this.safeResolve(validation.data.path);
     const dir = path.dirname(fullPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(fullPath, input.content, 'utf8');
-    const bytes = Buffer.byteLength(input.content, 'utf8');
-    logger.info({ path: input.path, bytes }, 'File written');
-    return `Successfully wrote ${bytes} bytes to ${input.path}`;
+
+    const mode = validation.data.mode;
+    if (mode === 'append') {
+      fs.appendFileSync(fullPath, validation.data.content, 'utf8');
+    } else {
+      fs.writeFileSync(fullPath, validation.data.content, 'utf8');
+    }
+
+    const bytes = Buffer.byteLength(validation.data.content, 'utf8');
+    return `Successfully wrote ${bytes} bytes to ${validation.data.path} (${mode})`;
   }
 }
 
@@ -52,17 +98,21 @@ export class ListFilesTool extends Tool {
     path: { type: 'string', description: 'Relative path within workspace (default: .)', required: false },
     max_depth: { type: 'number', description: 'Max depth to recurse (default: 3)', required: false }
   };
+  protected schema = ListFilesSchema;
 
   async forward(input: ToolInput): Promise<string> {
-    const relPath = input.path || '.';
+    const validation = this.validateInput(input);
+    if (!validation.valid) return `Error: Invalid input - ${validation.error}`;
+
+    const relPath = validation.data.path;
     const fullPath = this.safeResolve(relPath);
-    const maxDepth = Math.min(input.max_depth || 3, 5);
+    const maxDepth = validation.data.max_depth;
 
     const buildTree = (dir: string, depth: number): string => {
       if (depth > maxDepth) return '';
       let result = '';
       const entries = fs.readdirSync(dir, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         const indent = '  '.repeat(depth);
         if (entry.isDirectory()) {
@@ -85,11 +135,15 @@ export class CreateDirTool extends Tool {
   inputs = {
     path: { type: 'string', description: 'Relative path within workspace.', required: true }
   };
+  protected schema = CreateDirSchema;
 
   async forward(input: ToolInput): Promise<string> {
-    const fullPath = this.safeResolve(input.path);
+    const validation = this.validateInput(input);
+    if (!validation.valid) return `Error: Invalid input - ${validation.error}`;
+
+    const fullPath = this.safeResolve(validation.data.path);
     fs.mkdirSync(fullPath, { recursive: true });
-    return `Successfully created directory: ${input.path}`;
+    return `Successfully created directory: ${validation.data.path}`;
   }
 }
 
@@ -98,18 +152,20 @@ export class DeleteFileTool extends Tool {
   description = 'Delete a specific file from the workspace. Requires confirm=true to execute.';
   inputs = {
     path: { type: 'string', description: 'Relative path within workspace.', required: true },
-    confirm: { type: 'boolean', description: 'Must be true to proceed.', required: true }
+    confirm: { type: 'boolean', description: 'Must be true to execute.', required: true }
   };
+  protected schema = DeleteFileSchema;
 
   async forward(input: ToolInput): Promise<string> {
-    if (!input.confirm) return 'Error: Deletion not confirmed.';
-    const fullPath = this.safeResolve(input.path);
-    if (!fs.existsSync(fullPath)) return `Error: File not found: ${input.path}`;
+    const validation = this.validateInput(input);
+    if (!validation.valid) return `Error: Invalid input - ${validation.error}`;
+
+    const fullPath = this.safeResolve(validation.data.path);
+    if (!fs.existsSync(fullPath)) return `Error: File not found: ${validation.data.path}`;
     if (fs.statSync(fullPath).isDirectory()) return `Error: Use a directory tool to delete directories (not implemented for safety).`;
-    
+
     fs.unlinkSync(fullPath);
-    logger.info({ path: input.path }, 'File deleted');
-    return `Successfully deleted file: ${input.path}`;
+    return `Successfully deleted file: ${validation.data.path}`;
   }
 }
 
@@ -121,19 +177,22 @@ export class EditFileTool extends Tool {
     old_str: { type: 'string', description: 'Exact string to replace.', required: true },
     new_str: { type: 'string', description: 'New string to insert.', required: true }
   };
+  protected schema = EditFileSchema;
 
   async forward(input: ToolInput): Promise<string> {
-    const fullPath = this.safeResolve(input.path);
-    if (!fs.existsSync(fullPath)) return `Error: File not found: ${input.path}`;
-    
+    const validation = this.validateInput(input);
+    if (!validation.valid) return `Error: Invalid input - ${validation.error}`;
+
+    const fullPath = this.safeResolve(validation.data.path);
+    if (!fs.existsSync(fullPath)) return `Error: File not found: ${validation.data.path}`;
+
     const content = fs.readFileSync(fullPath, 'utf8');
-    if (!content.includes(input.old_str)) {
-      return `Error: Could not find exact match for "old_str" in ${input.path}`;
+    if (!content.includes(validation.data.old_str)) {
+      return `Error: Could not find exact match for "old_str" in ${validation.data.path}`;
     }
-    
-    const newContent = content.replace(input.old_str, input.new_str);
+
+    const newContent = content.replace(validation.data.old_str, validation.data.new_str);
     fs.writeFileSync(fullPath, newContent, 'utf8');
-    logger.info({ path: input.path }, 'File edited');
-    return `Successfully edited ${input.path}`;
+    return `Successfully edited ${validation.data.path}`;
   }
 }

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(curl *)",
+      "Bash(ollama list *)"
+    ]
+  }
+}
