@@ -29,6 +29,8 @@ function loadConfig(): Config {
     WORKSPACE_DIR: process.env.WORKSPACE_DIR,
     ALLOWED_TELEGRAM_USER_IDS: process.env.ALLOWED_TELEGRAM_USER_IDS,
     LOG_LEVEL: process.env.LOG_LEVEL,
+    API_KEY: process.env.API_KEY,
+    AGENT_TIMEOUT_MS: process.env.AGENT_TIMEOUT_MS,
   });
 
   // Ensure workspace exists

@@ -1,6 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { AgentRuntime } from '../agent/runtime';
+import { AgentRuntime, getMetrics } from '../agent/runtime';
 import { getDb } from '../db';
 import { logger } from '../logger';
 import { config } from '../config';
@@ -33,14 +33,13 @@ function authenticateApiKey(req: express.Request, res: express.Response, next: e
   const apiKey = req.headers['x-api-key'] || req.query['api_key'];
 
   // If API_KEY is set in config, require valid key
-  const requiredKey = process.env.API_KEY;
-  if (requiredKey) {
-    if (!apiKey || apiKey !== requiredKey) {
+  if (config.API_KEY) {
+    if (!apiKey || apiKey !== config.API_KEY) {
       return res.status(401).json({ error: 'Invalid or missing API key' });
     }
   }
 
-  next();
+  next()
 }
 
 // Apply auth to all routes except health
@@ -55,6 +54,10 @@ router.get('/health', async (req, res) => {
   res.json({ status: 'ok', service: 'Trailflow' });
 });
 
+router.get('/metrics', async (req, res) => {
+  res.json(getMetrics());
+});
+
 router.get('/sessions', async (req, res) => {
   const db = await getDb();
   const sessions = await db.all('SELECT * FROM sessions ORDER BY last_active DESC');
@@ -65,6 +68,67 @@ router.get('/sessions/:id/messages', async (req, res) => {
   const db = await getDb();
   const messages = await db.all('SELECT * FROM messages WHERE session_id = ? ORDER BY created_at ASC', [req.params.id]);
   res.json(messages);
+});
+
+// Export a full session (session metadata + all messages + plan steps) as JSON
+router.get('/sessions/:id/export', async (req, res) => {
+  const { id } = req.params;
+  const db = await getDb();
+
+  const session = await db.get('SELECT * FROM sessions WHERE id = ?', [id]);
+  if (!session) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+
+  const messages = await db.all(
+    'SELECT * FROM messages WHERE session_id = ? ORDER BY created_at ASC',
+    [id]
+  );
+  const plan = await db.all(
+    'SELECT * FROM tasks WHERE session_id = ? ORDER BY plan_order ASC',
+    [id]
+  );
+
+  res.setHeader('Content-Disposition', `attachment; filename="session-${id}.json"`);
+  res.json({ exportedAt: new Date().toISOString(), session, messages, plan });
+});
+
+// Import a session from a previously exported JSON payload
+router.post('/sessions/import', async (req, res) => {
+  const { session, messages, plan } = req.body;
+
+  if (!session?.id || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'Invalid import payload: must contain session.id and messages[]' });
+  }
+
+  const db = await getDb();
+
+  // Upsert session
+  await db.run(
+    'INSERT OR REPLACE INTO sessions (id, created_at, last_active) VALUES (?, ?, ?)',
+    [session.id, session.created_at ?? new Date().toISOString(), new Date().toISOString()]
+  );
+
+  // Replay messages (skip duplicates by id)
+  for (const msg of messages) {
+    await db.run(
+      'INSERT OR IGNORE INTO messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)',
+      [msg.id, session.id, msg.role, msg.content, msg.created_at]
+    );
+  }
+
+  // Replay plan steps if present
+  if (Array.isArray(plan)) {
+    for (const step of plan) {
+      await db.run(
+        'INSERT OR IGNORE INTO tasks (id, session_id, description, status, plan_order, result, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [step.id, session.id, step.description, step.status, step.plan_order, step.result, step.created_at]
+      );
+    }
+  }
+
+  logger.info({ sessionId: session.id, messages: messages.length }, 'Session imported');
+  res.json({ ok: true, sessionId: session.id, messagesImported: messages.length });
 });
 
 router.post('/chat', chatLimiter, async (req, res) => {

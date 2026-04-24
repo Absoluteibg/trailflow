@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import { randomUUID } from "crypto";
 import { setupTelegram } from "./src/lib/channels/telegram";
 import webRouter from "./src/lib/channels/web";
 import { logger } from "./src/lib/logger";
@@ -38,6 +39,20 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+
+  // Request ID middleware — stamps every request with a unique ID for log correlation
+  app.use((req, res, next) => {
+    const reqId = (req.headers['x-request-id'] as string) || randomUUID();
+    res.setHeader('x-request-id', reqId);
+    (req as any).reqId = reqId;
+    next();
+  });
+
+  // Request logging middleware
+  app.use((req, _res, next) => {
+    logger.info({ reqId: (req as any).reqId, method: req.method, url: req.url }, 'incoming request');
+    next();
+  });
 
   // API routes
   app.use('/api', webRouter);

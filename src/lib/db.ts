@@ -18,6 +18,11 @@ export async function getDb() {
     driver: sqlite3.Database
   });
 
+  // WAL mode: better concurrency, prevents corruption under parallel reads
+  await db.exec('PRAGMA journal_mode = WAL;');
+  // Enforce foreign key constraints (declared in schema but SQLite disables them by default)
+  await db.exec('PRAGMA foreign_keys = ON;');
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,

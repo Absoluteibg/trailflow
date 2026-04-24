@@ -3,9 +3,42 @@ import { buildContext } from "./context";
 import { getToolByName, allTools } from "../tools";
 import { getDb } from "../db";
 import { logger } from "../logger";
+import { config } from "../config";
 
 // Tools that are safe to run in parallel (read-only, no side effects)
 const PARALLEL_SAFE_TOOLS = ['read_file', 'list_files', 'git_status', 'git_diff', 'memory_read', 'search_code'];
+
+// ---------------------------------------------------------------------------
+// In-memory metrics — lightweight, zero dependencies
+// ---------------------------------------------------------------------------
+interface Metrics {
+  tasksStarted: number;
+  tasksCompleted: number;
+  tasksFailed: number;
+  tasksTimedOut: number;
+  totalDurationMs: number;
+  toolCalls: Record<string, number>;
+}
+
+const metrics: Metrics = {
+  tasksStarted: 0,
+  tasksCompleted: 0,
+  tasksFailed: 0,
+  tasksTimedOut: 0,
+  totalDurationMs: 0,
+  toolCalls: {},
+};
+
+export function getMetrics() {
+  const avgDurationMs = metrics.tasksCompleted > 0
+    ? Math.round(metrics.totalDurationMs / metrics.tasksCompleted)
+    : 0;
+  return { ...metrics, avgDurationMs };
+}
+
+function recordToolCall(toolName: string) {
+  metrics.toolCalls[toolName] = (metrics.toolCalls[toolName] ?? 0) + 1;
+}
 
 export interface PlanStep {
   id?: number;
@@ -107,6 +140,37 @@ Do not include any other text.`;
   }
 
   async runTask(sessionId: string, task: string): Promise<string> {
+    metrics.tasksStarted++;
+    const startTime = Date.now();
+
+    // Wall-clock timeout: race the actual work against a timer
+    const timeoutMs = config.AGENT_TIMEOUT_MS;
+    let timeoutHandle: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<string>(resolve => {
+      timeoutHandle = setTimeout(() => {
+        metrics.tasksTimedOut++;
+        logger.warn({ sessionId, timeoutMs }, 'Agent task timed out');
+        resolve(`Error: Task timed out after ${timeoutMs / 1000}s. Try breaking it into smaller steps.`);
+      }, timeoutMs);
+    });
+
+    const workPromise = this._runTaskInner(sessionId, task);
+
+    const result = await Promise.race([workPromise, timeoutPromise]);
+    clearTimeout(timeoutHandle!);
+
+    const durationMs = Date.now() - startTime;
+    if (result.startsWith('Error:')) {
+      metrics.tasksFailed++;
+    } else {
+      metrics.tasksCompleted++;
+      metrics.totalDurationMs += durationMs;
+    }
+    logger.info({ sessionId, durationMs }, 'Task finished');
+    return result;
+  }
+
+  private async _runTaskInner(sessionId: string, task: string): Promise<string> {
     const db = await getDb();
     const { systemPrompt, history } = await buildContext(sessionId, task);
 
@@ -149,6 +213,7 @@ Do not include any other text.`;
         const tool = getToolByName(toolName);
 
         if (tool) {
+          recordToolCall(toolName);
           logger.info({ toolName, toolInput }, 'Executing tool');
           try {
             const observation = await tool.forward(toolInput);
