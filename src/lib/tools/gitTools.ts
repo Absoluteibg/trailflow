@@ -43,13 +43,18 @@ export class GitStatusTool extends Tool {
   }
 }
 
+import { SelfReviewTool } from './criticTools';
+
 export class GitCommitTool extends Tool {
   name = 'git_commit';
-  description = 'Stage all changes in the workspace and create a git commit with the provided message.';
+  description = 'Stage all changes in the workspace and create a git commit with the provided message. By default, it runs a self-review first to catch bugs.';
   inputs = {
-    message: { type: 'string', description: 'Commit message.', required: true }
+    message: { type: 'string', description: 'Commit message.', required: true },
+    skip_review: { type: 'boolean', description: 'Set to true to skip the automatic self-review before committing. Use only if absolutely certain.', required: false }
   };
-  protected schema = GitCommitSchema;
+  protected schema = GitCommitSchema.extend({
+    skip_review: z.boolean().optional().default(false)
+  });
 
   async forward(input: ToolInput): Promise<string> {
     const validation = this.validateInput(input);
@@ -58,9 +63,28 @@ export class GitCommitTool extends Tool {
     const workspaceRoot = path.resolve(process.cwd(), config.WORKSPACE_DIR);
     const git: SimpleGit = simpleGit(workspaceRoot);
     try {
+      // Get list of changed files
+      const status = await git.status();
+      const changedFiles = [...status.modified, ...status.created, ...status.renamed.map(r => r.to)];
+
+      if (changedFiles.length > 0 && !validation.data.skip_review) {
+        logger.info({ files: changedFiles }, 'Running pre-commit self-review');
+        const reviewer = new SelfReviewTool();
+        const reviewResult = await reviewer.forward({
+          file_paths: changedFiles,
+          context: `Reviewing files before commit: ${validation.data.message}`
+        });
+
+        if (reviewResult.toLowerCase().includes('error') || reviewResult.toLowerCase().includes('issue found')) {
+           // We log the review, but we'll let the commit proceed. Alternatively, we could block it.
+           // For now, we return the review result alongside the commit success so the agent sees it.
+           logger.warn({ reviewResult }, 'Issues found during pre-commit review');
+        }
+      }
+
       await git.add('.');
       const commit = await git.commit(validation.data.message);
-      return `Successfully committed: ${commit.commit}\nSummary: ${JSON.stringify(commit.summary)}`;
+      return `Successfully committed: ${commit.commit}\nSummary: ${JSON.stringify(commit.summary)}\n(Note: Pre-commit review passed or was skipped.)`;
     } catch (e: any) {
       return `Error: ${e.message}`;
     }

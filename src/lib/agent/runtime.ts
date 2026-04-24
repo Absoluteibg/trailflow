@@ -1,4 +1,4 @@
-import { OllamaLLM } from "./llm";
+import { LLMRouter, LLMProvider } from "./llm";
 import { buildContext } from "./context";
 import { getToolByName, allTools } from "../tools";
 import { getDb } from "../db";
@@ -49,10 +49,10 @@ export interface PlanStep {
 }
 
 export class AgentRuntime {
-  private llm: OllamaLLM;
+  private llm: LLMProvider;
 
   constructor() {
-    this.llm = new OllamaLLM();
+    this.llm = new LLMRouter();
   }
 
   async createPlan(sessionId: string, objective: string): Promise<PlanStep[]> {

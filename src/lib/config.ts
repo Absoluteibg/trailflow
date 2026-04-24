@@ -4,6 +4,9 @@ import fs from 'fs';
 
 const ConfigSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  DEFAULT_PROVIDER: z.enum(['ollama', 'gemini', 'anthropic', 'openai']).default('ollama'),
   OLLAMA_BASE_URL: z.string().default('http://localhost:11434'),
   OLLAMA_MODEL: z.string().default('gemma4:e4b'),
   APP_URL: z.string().optional(),
@@ -22,6 +25,9 @@ export type Config = z.infer<typeof ConfigSchema>;
 function loadConfig(): Config {
   const config = ConfigSchema.parse({
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    DEFAULT_PROVIDER: process.env.DEFAULT_PROVIDER,
     OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
     OLLAMA_MODEL: process.env.OLLAMA_MODEL,
     APP_URL: process.env.APP_URL,

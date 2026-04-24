@@ -4,6 +4,9 @@ import { GitStatusTool, GitCommitTool, GitDiffTool, GitCloneTool, GitPushTool } 
 import { SearchCodeTool } from './searchTools';
 import { MemoryReadTool, MemoryWriteTool } from './memoryTools';
 import { AskUserTool, ConfirmActionTool } from './interactionTools';
+import { DelegateTaskTool } from './subagentTools';
+import { SelfReviewTool, AutoTestTool } from './criticTools';
+import { AtomicMultiFileEditTool, RollbackTool } from './multiFileTools';
 import { Tool } from './base';
 
 export const allTools: Tool[] = [
@@ -25,6 +28,11 @@ export const allTools: Tool[] = [
   new MemoryWriteTool(),
   new AskUserTool(),
   new ConfirmActionTool(),
+  new DelegateTaskTool(),
+  new SelfReviewTool(),
+  new AutoTestTool(),
+  new AtomicMultiFileEditTool(),
+  new RollbackTool(),
 ];
 
 export function getToolByName(name: string): Tool | undefined {
