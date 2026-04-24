@@ -20,8 +20,6 @@ interface ScoredMessage {
 }
 
 function scoreMessage(content: string, role: string): Importance {
-  const lowerContent = content.toLowerCase();
-
   // CRITICAL: Tool executions and results
   if (content.includes('Action:') || content.includes('Observation:')) {
     return Importance.CRITICAL;

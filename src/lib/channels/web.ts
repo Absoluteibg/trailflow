@@ -149,14 +149,14 @@ router.post('/chat', chatLimiter, async (req, res) => {
   }
 
   const db = await getDb();
-  await db.run('INSERT OR IGNORE INTO sessions (id) VALUES (?)', [sessionId]);
-  await db.run('INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)', [sessionId, 'user', message]);
+  await db.run('INSERT OR IGNORE INTO sessions (id) VALUES (?)', [sanitizedSessionId]);
+  await db.run('INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)', [sanitizedSessionId, 'user', sanitizedMessage]);
 
   try {
     // Use plan mode for complex tasks
     const result = usePlan
-      ? await agent.runWithPlan(sessionId, sanitizedMessage)
-      : await agent.runTask(sessionId, sanitizedMessage);
+      ? await agent.runWithPlan(sanitizedSessionId, sanitizedMessage)
+      : await agent.runTask(sanitizedSessionId, sanitizedMessage);
     res.json({ result });
   } catch (error: any) {
     logger.error({ error: error.message }, 'Web chat failed');
