@@ -1,11 +1,12 @@
 services:
   trailflow:
     build: .
+    user: "root"
     ports:
       - "3000:3000"
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - OLLAMA_MODEL=gemma4:e4b
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:1.7b}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - ALLOWED_TELEGRAM_USER_IDS=${ALLOWED_TELEGRAM_USER_IDS:-}
       - API_KEY=${API_KEY:-}
