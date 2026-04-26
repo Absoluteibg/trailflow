@@ -8,6 +8,34 @@ import { config } from '../config';
 const router = express.Router();
 const agent = new AgentRuntime();
 
+function toPrometheusMetrics() {
+  const m = getMetrics();
+  const lines = [
+    '# HELP trailflow_tasks_started Total tasks started',
+    '# TYPE trailflow_tasks_started counter',
+    `trailflow_tasks_started ${m.tasksStarted}`,
+    '# HELP trailflow_tasks_completed Total tasks completed',
+    '# TYPE trailflow_tasks_completed counter',
+    `trailflow_tasks_completed ${m.tasksCompleted}`,
+    '# HELP trailflow_tasks_failed Total tasks failed',
+    '# TYPE trailflow_tasks_failed counter',
+    `trailflow_tasks_failed ${m.tasksFailed}`,
+    '# HELP trailflow_tasks_timed_out Total timed out tasks',
+    '# TYPE trailflow_tasks_timed_out counter',
+    `trailflow_tasks_timed_out ${m.tasksTimedOut}`,
+    '# HELP trailflow_avg_duration_ms Average task duration in milliseconds',
+    '# TYPE trailflow_avg_duration_ms gauge',
+    `trailflow_avg_duration_ms ${m.avgDurationMs}`,
+    '# HELP trailflow_tool_calls_total Total calls per tool',
+    '# TYPE trailflow_tool_calls_total counter',
+  ];
+  for (const [toolName, count] of Object.entries(m.toolCalls)) {
+    const label = toolName.replace(/"/g, '\\"');
+    lines.push(`trailflow_tool_calls_total{tool="${label}"} ${count}`);
+  }
+  return `${lines.join('\n')}\n`;
+}
+
 // Rate limiting: 100 requests per 15 minutes per IP
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -42,9 +70,9 @@ function authenticateApiKey(req: express.Request, res: express.Response, next: e
   next()
 }
 
-// Apply auth to all routes except health
+// Apply auth to all routes except health and Prometheus scrape endpoint
 router.use((req, res, next) => {
-  if (req.path === '/health') {
+  if (req.path === '/health' || req.path === '/metrics/prometheus') {
     return next();
   }
   authenticateApiKey(req, res, next);
@@ -56,6 +84,11 @@ router.get('/health', async (req, res) => {
 
 router.get('/metrics', async (req, res) => {
   res.json(getMetrics());
+});
+
+router.get('/metrics/prometheus', async (_req, res) => {
+  res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+  res.send(toPrometheusMetrics());
 });
 
 router.get('/sessions', async (req, res) => {

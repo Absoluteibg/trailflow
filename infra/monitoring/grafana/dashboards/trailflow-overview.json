@@ -1,0 +1,38 @@
+{
+  "title": "Trailflow Overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Tasks Started",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [{ "expr": "trailflow_tasks_started" }]
+    },
+    {
+      "type": "stat",
+      "title": "Tasks Completed",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "targets": [{ "expr": "trailflow_tasks_completed" }]
+    },
+    {
+      "type": "stat",
+      "title": "Tasks Failed",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "targets": [{ "expr": "trailflow_tasks_failed" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Task Outcome Counters",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "trailflow_tasks_started", "legendFormat": "started" },
+        { "expr": "trailflow_tasks_completed", "legendFormat": "completed" },
+        { "expr": "trailflow_tasks_failed", "legendFormat": "failed" },
+        { "expr": "trailflow_tasks_timed_out", "legendFormat": "timed_out" }
+      ]
+    }
+  ]
+}

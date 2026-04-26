@@ -2,7 +2,7 @@ import { ReadFileTool, WriteFileTool, ListFilesTool, CreateDirTool, DeleteFileTo
 import { ShellExecTool, RunTestsTool } from './shellTools';
 import { GitStatusTool, GitCommitTool, GitDiffTool, GitCloneTool, GitPushTool } from './gitTools';
 import { SearchCodeTool } from './searchTools';
-import { MemoryReadTool, MemoryWriteTool } from './memoryTools';
+import { MemoryReadTool, MemoryWriteTool, SearchMemoryTool } from './memoryTools';
 import { AskUserTool, ConfirmActionTool } from './interactionTools';
 import { DelegateTaskTool } from './subagentTools';
 import { SelfReviewTool, AutoTestTool } from './criticTools';
@@ -26,6 +26,7 @@ export const allTools: Tool[] = [
   new SearchCodeTool(),
   new MemoryReadTool(),
   new MemoryWriteTool(),
+  new SearchMemoryTool(),
   new AskUserTool(),
   new ConfirmActionTool(),
   new DelegateTaskTool(),

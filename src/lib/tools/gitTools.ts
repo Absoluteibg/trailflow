@@ -3,6 +3,8 @@ import { Tool, ToolInput } from './base';
 import { config } from '../config';
 import path from 'path';
 import { z } from 'zod';
+import { SelfReviewTool } from './criticTools';
+import { logger } from '../logger';
 
 const GitStatusSchema = z.object({});
 
@@ -43,7 +45,7 @@ export class GitStatusTool extends Tool {
   }
 }
 
-import { SelfReviewTool } from './criticTools';
+
 
 export class GitCommitTool extends Tool {
   name = 'git_commit';

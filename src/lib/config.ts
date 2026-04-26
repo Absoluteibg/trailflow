@@ -18,6 +18,8 @@ const ConfigSchema = z.object({
   API_KEY: z.string().optional(),
   // Max wall-clock time for a single agent task (ms). Default: 5 minutes.
   AGENT_TIMEOUT_MS: z.coerce.number().default(300_000),
+  DB_PROVIDER: z.enum(['sqlite', 'postgres']).default('sqlite'),
+  DATABASE_URL: z.string().optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -37,6 +39,8 @@ function loadConfig(): Config {
     LOG_LEVEL: process.env.LOG_LEVEL,
     API_KEY: process.env.API_KEY,
     AGENT_TIMEOUT_MS: process.env.AGENT_TIMEOUT_MS,
+    DB_PROVIDER: process.env.DB_PROVIDER,
+    DATABASE_URL: process.env.DATABASE_URL,
   });
 
   // Ensure workspace exists

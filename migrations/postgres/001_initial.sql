@@ -1,0 +1,33 @@
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id BIGSERIAL PRIMARY KEY,
+  session_id TEXT REFERENCES sessions(id),
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+  id BIGSERIAL PRIMARY KEY,
+  session_id TEXT REFERENCES sessions(id),
+  parent_task_id BIGINT REFERENCES tasks(id),
+  description TEXT,
+  status TEXT DEFAULT 'pending',
+  result TEXT,
+  plan_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS plans (
+  id BIGSERIAL PRIMARY KEY,
+  session_id TEXT REFERENCES sessions(id),
+  objective TEXT,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP
+);

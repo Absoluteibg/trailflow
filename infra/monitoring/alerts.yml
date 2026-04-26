@@ -1,0 +1,20 @@
+groups:
+  - name: trailflow-alerts
+    rules:
+      - alert: TrailflowDown
+        expr: up{job="trailflow"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Trailflow instance is down
+          description: Prometheus cannot scrape Trailflow metrics.
+
+      - alert: TrailflowHighFailureRate
+        expr: trailflow_tasks_failed > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Elevated task failures detected
+          description: trailflow_tasks_failed exceeded 10.

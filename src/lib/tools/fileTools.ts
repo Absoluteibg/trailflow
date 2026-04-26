@@ -114,6 +114,11 @@ export class ListFilesTool extends Tool {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
 
       for (const entry of entries) {
+        // Skip massive directories to prevent context window bloat
+        if (entry.isDirectory() && ['node_modules', '.git', 'dist', 'build', '.env'].includes(entry.name)) {
+          continue;
+        }
+        
         const indent = '  '.repeat(depth);
         if (entry.isDirectory()) {
           result += `${indent}${entry.name}/\n`;

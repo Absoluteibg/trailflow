@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trailflow
+  labels:
+    app: trailflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trailflow
+  template:
+    metadata:
+      labels:
+        app: trailflow
+    spec:
+      containers:
+        - name: trailflow
+          image: trailflow:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: trailflow-config
+            - secretRef:
+                name: trailflow-secrets
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1
+              memory: 1Gi

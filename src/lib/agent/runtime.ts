@@ -46,6 +46,7 @@ export interface PlanStep {
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   plan_order: number;
   result?: string;
+  parent_task_id?: number | null;
 }
 
 export class AgentRuntime {
@@ -73,9 +74,10 @@ Objective: ${objective}
 
 Respond with ONLY a JSON array of steps in this format:
 [
-  {"description": "Step 1 description"},
-  {"description": "Step 2 description"}
+  {"description": "Step 1 description", "depends_on": null},
+  {"description": "Step 2 description", "depends_on": 0} 
 ]
+Note: depends_on is the zero-based index of the step that must be completed first, or null.
 
 Do not include any other text.`;
 
@@ -89,15 +91,21 @@ Do not include any other text.`;
         const planSteps: PlanStep[] = [];
 
         for (let i = 0; i < steps.length; i++) {
+          const parentIndex = steps[i].depends_on;
+          const parentTaskId = (parentIndex !== null && parentIndex >= 0 && parentIndex < planSteps.length) 
+            ? planSteps[parentIndex].id 
+            : null;
+
           const result = await db.run(
-            'INSERT INTO tasks (session_id, description, plan_order, status) VALUES (?, ?, ?, ?)',
-            [sessionId, steps[i].description, i, 'pending']
+            'INSERT INTO tasks (session_id, description, plan_order, status, parent_task_id) VALUES (?, ?, ?, ?, ?)',
+            [sessionId, steps[i].description, i, 'pending', parentTaskId]
           );
           planSteps.push({
             id: result.lastID,
             description: steps[i].description,
             status: 'pending',
-            plan_order: i
+            plan_order: i,
+            parent_task_id: parentTaskId
           });
         }
 
@@ -125,7 +133,7 @@ Do not include any other text.`;
   async getPlan(sessionId: string): Promise<PlanStep[]> {
     const db = await getDb();
     const rows = await db.all(
-      'SELECT id, description, status, plan_order, result FROM tasks WHERE session_id = ? ORDER BY plan_order ASC',
+      'SELECT id, description, status, plan_order, result, parent_task_id FROM tasks WHERE session_id = ? ORDER BY plan_order ASC',
       [sessionId]
     );
     return rows;
@@ -167,6 +175,21 @@ Do not include any other text.`;
       metrics.totalDurationMs += durationMs;
     }
     logger.info({ sessionId, durationMs }, 'Task finished');
+
+    // Agent Bin logging
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const binDir = path.resolve(process.cwd(), config.WORKSPACE_DIR, 'Agent bin');
+      if (!fs.existsSync(binDir)) {
+        fs.mkdirSync(binDir, { recursive: true });
+      }
+      const logContent = `\n\n=== TASK (${new Date().toISOString()}) ===\nSession: ${sessionId}\nTask: ${task}\n\nResult:\n${result}\n`;
+      fs.appendFileSync(path.join(binDir, 'agent_log.txt'), logContent, 'utf8');
+    } catch (e: any) {
+      logger.warn({ error: e.message }, 'Failed to write to Agent bin');
+    }
+
     return result;
   }
 
@@ -216,7 +239,13 @@ Do not include any other text.`;
           recordToolCall(toolName);
           logger.info({ toolName, toolInput }, 'Executing tool');
           try {
-            const observation = await tool.forward(toolInput);
+            let observation = await tool.forward(toolInput);
+            
+            // Truncate overly long tool outputs to prevent context bloat
+            if (observation.length > 2000) {
+              observation = observation.substring(0, 2000) + '\n...[TRUNCATED to 2000 chars for context limits]';
+            }
+
             const observationMsg = `Observation: ${observation}`;
             messages.push({ role: 'user', parts: [{ text: observationMsg }] });
             await db.run('INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)', [sessionId, 'user', observationMsg]);
